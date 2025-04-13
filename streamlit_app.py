@@ -108,22 +108,38 @@ if st.button("🚀 Run Predictions"):
 # ----------------------------------------------------------------------
 def plot_radar(row):
     labels = ['MW', 'XLOGP', 'TPSA', 'HBD', 'RotatableBonds']
-    values = [row.get(k, 0) for k in labels]
+    raw_values = [row.get(k, 0) for k in labels]
+
+    # Normalization reference values (approximate maxs for display)
+    max_values = {
+        'MW': 600,
+        'XLOGP': 6,
+        'TPSA': 150,
+        'HBD': 5,
+        'RotatableBonds': 15
+    }
+
+    # Normalize values to [0–1] range
+    norm_values = [
+        raw / max_values[label] if max_values[label] != 0 else 0
+        for raw, label in zip(raw_values, labels)
+    ]
 
     fig = go.Figure()
     fig.add_trace(go.Scatterpolar(
-        r=values,
+        r=norm_values,
         theta=labels,
         fill='toself',
         name=row['SMILES'][:10] + "..."
     ))
 
     fig.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, max(values) + 20])),
+        polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
         showlegend=True,
         title="📊 Molecular Properties Radar Chart"
     )
     return fig
+
 
 if st.session_state.results is not None:
     st.markdown("### 🧭 Radar Chart for a Molecule")
