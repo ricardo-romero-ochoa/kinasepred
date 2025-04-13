@@ -1,6 +1,14 @@
 [theme]
-primaryColor = "#3F8CFF"        # button highlights
-backgroundColor = "#F6F9FC"     # main background
-secondaryBackgroundColor = "#FFFFFF"  # sidebar
-textColor = "#262730"
-font = "sans serif"
+base="dark"
+primaryColor="#00C0F2"
+backgroundColor="#0e1117"
+secondaryBackgroundColor="#1f232c"
+textColor="#f6f6f6"
+font="sans serif"
+
+[server]
+runOnSave = true
+
+[client]
+showErrorDetails = true
+
