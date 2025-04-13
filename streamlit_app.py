@@ -138,9 +138,9 @@ if st.session_state.results is not None:
     # 🔄 Reset button
     if st.button("🔄 Clear Results & Start New Batch"):
         st.session_state.results = None
-        st.session_state.smiles_input = ""
-        # ✅ Do NOT attempt to clear uploaded_file directly
         st.experimental_rerun()
+
+
 
 
 # ----------------------------------------------------------------------
