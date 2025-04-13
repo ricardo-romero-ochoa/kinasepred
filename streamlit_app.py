@@ -65,6 +65,10 @@ st.markdown("""
 
 uploaded_file = st.file_uploader("", type=["csv"], key="uploaded_file")
 
+if uploaded_file:
+    st.success("✅ File uploaded successfully!")
+
+
 
 # ----------------------------------------------------------------------
 # Run Predictions
@@ -154,8 +158,9 @@ if st.session_state.results is not None:
     if st.button("🔄 Clear Results & Start New Batch"):
         st.session_state.results = None
         st.session_state.smiles_input = ""
-        st.session_state.uploaded_file = None
+        # ✅ Do NOT attempt to clear uploaded_file directly
         st.experimental_rerun()
+
 
 # ----------------------------------------------------------------------
 # Footer
