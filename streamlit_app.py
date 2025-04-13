@@ -19,10 +19,11 @@ st.set_page_config(
 
 
 # ✅ Initialize session state
-for key in ["results", "smiles_input", "uploaded_file"]:
-    if key not in st.session_state:
-        st.session_state[key] = None if key == "results" else ""
-
+if "results" not in st.session_state:
+    st.session_state.results = None
+if "smiles_input" not in st.session_state:
+    st.session_state.smiles_input = ""
+# 🚫 Do not set st.session_state.uploaded_file
 
 
 # ✅ Branding (after config)
