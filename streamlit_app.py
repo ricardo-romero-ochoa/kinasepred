@@ -42,7 +42,7 @@ smiles_input = st.text_area(
 )
 
 # Styled file drop zone
-st.markdown(\"""
+st.markdown("""
     <style>
     .file-drop-zone {
         border: 3px dashed #00c0f2;
@@ -61,7 +61,7 @@ st.markdown(\"""
     }
     </style>
     <div class="file-drop-zone">📁 Drop or browse a CSV file here with SMILES</div>
-\""", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader("", type=["csv"], key="uploaded_file")
 
