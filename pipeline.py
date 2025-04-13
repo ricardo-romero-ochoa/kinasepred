@@ -609,27 +609,27 @@ def main(
 
     # 1) Validate
     #val_csv = f"{output_prefix}_validation.csv"
-    df_step1 = validate_csv(input_smiles_csv)
+    df_step1 = validate_csv(input_smiles_csv, val_csv)
 
     # 2) Lipinski + filters
     #lip_csv = f"{output_prefix}_lipinski.csv"
-    df_step2 = apply_lipinski_rules(df_step1)
+    df_step2 = apply_lipinski_rules(df_step1, lip_csv)
 
     # 3) Lead-likeness
     #lead_csv = f"{output_prefix}_lead.csv"
-    df_step3 = apply_leadlikeness(df_step2)
+    df_step3 = apply_leadlikeness(df_step2, lead_csv)
 
     # 4) Brenk/PAINS/BBB
     #brenk_csv = f"{output_prefix}_brenk.csv"
-    df_step4 = apply_brenk_pains(df_step3)
+    df_step4 = apply_brenk_pains(df_step3, brenk_csv)
 
     # 5) Bioactivity Model inference
     #bioactivity_csv = f"{output_prefix}_bioactivity.csv"
-    df_step5 = apply_keras_model(df_step4, model_path)
+    df_step5 = apply_keras_model(df_step4, bioactivity_csv)
 
     # 6) Herg Model inference
     #herg_csv = f"{output_prefix}_herg.csv"
-    df_step6 = apply_herg_model(df_step5, herg_model_path)
+    df_step6 = apply_herg_model(df_step5, herg_model_path, herg_csv)
 
     # 7) BBB Model inference
     final_csv = f"{output_prefix}_final.csv"
