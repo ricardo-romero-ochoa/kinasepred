@@ -1,15 +1,15 @@
 # ------------------------------------------------------------------------------
 # KinasePred: Kinase Inhibitor Bioactivity & Toxicity Prediction Platform
 # © 2025 DataBiotica. All rights reserved.
+# Unauthorized use, copying, or distribution is prohibited without permission.
 # ------------------------------------------------------------------------------
 
 import streamlit as st
 import pandas as pd
-from pipeline import main as run_pipeline  # Make sure pipeline.py is in same folder
+from pipeline import main as run_pipeline  # This should accept 3 model paths
 from PIL import Image
 import plotly.graph_objects as go
 import time
-import os
 
 # ✅ Must be first
 st.set_page_config(
@@ -18,77 +18,125 @@ st.set_page_config(
     layout="wide"
 )
 
-# ✅ App branding
+
+if "results" not in st.session_state:
+    st.session_state.results = None
+if "smiles_input" not in st.session_state:
+    st.session_state.smiles_input = ""
+# 🚫 Do not set st.session_state.uploaded_file
+
+
+
+
+# ✅ Branding (after config)
 logo = Image.open("assets/logo.png")
 st.image(logo, width=150)
-st.title("🧬 KinasePred: Bioactivity, BBB & hERG Prediction")
-st.caption("Predict kinase bioactivity, hERG toxicity, and BBB permeability from SMILES.")
 
-# --- INPUT SECTION ---
-smiles_input = st.text_area("Paste SMILES (one per line):", height=150)
-uploaded_file = st.file_uploader("📁 Upload a CSV file with a `SMILES` column", type=["csv"])
+st.title("🧬 KinasePred: Bioactivity, BBB & hERG Prediction")
+st.caption("Kinase inhibition prediction pipeline including BBB permeability and hERG toxicity evaluation.")
+
+# ----------------------------------------------------------------------
+# Input Section
+# ----------------------------------------------------------------------
+smiles_input = st.text_area(
+    "Paste SMILES (one per line):",
+    height=150,
+    key="smiles_input"
+)
+
+
+uploaded_file = st.file_uploader("📁 Upload a CSV file with a `SMILES` column", type=["csv"], key="uploaded_file")
 
 if uploaded_file:
     st.success("✅ File uploaded successfully!")
 
-# --- RUN BUTTON ---
+
+# ----------------------------------------------------------------------
+# Run Predictions
+# ----------------------------------------------------------------------
 if st.button("🚀 Run Predictions"):
+    progress = st.progress(0, text="Initializing...")
+
     try:
-        # Step 1: Prepare input
         if uploaded_file:
             df = pd.read_csv(uploaded_file)
         elif smiles_input.strip():
             df = pd.DataFrame({"SMILES": smiles_input.strip().splitlines()})
         else:
-            st.warning("⚠️ Please provide SMILES.")
+            st.warning("⚠️ Please provide SMILES input.")
             st.stop()
 
-
-        # Step 2: Save temp input
         df.to_csv("input_temp.csv", index=False)
-        st.success("✅ input_temp.csv saved.")
 
-        # Step 3: Run pipeline
-        with st.spinner("Running pipeline..."):
-            run_pipeline(
-                input_smiles_csv="input_temp.csv",
-                model_path="models/kinase_model.h5",
-                herg_model_path="models/herg_model.h5",
-                bbb_model_path="models/bbb_model.h5",
-                output_prefix="results"
-            )
+        # Progress steps
+        progress.progress(10, text="Validating molecules...")
+        time.sleep(0.5)
 
-        # Step 4: Load and display results
-        if os.path.exists("results_final.csv"):
-            df_result = pd.read_csv("results_final.csv")
-            st.success("✅ Prediction complete!")
-            st.dataframe(df_result)
+        progress.progress(30, text="Running predictions...")
+        run_pipeline(
+            input_smiles_csv="input_temp.csv",
+            model_path="models/kinase_model.h5",
+            output_prefix="results",
+            herg_model_path="models/herg_model.h5",
+            bbb_model_path="models/bbb_model.h5"
+        )
 
-            # Download button
-            st.download_button(
-                label="📥 Download Results",
-                data=df_result.to_csv(index=False),
-                file_name="KinasePred_results.csv",
-                mime="text/csv"
-            )
+        progress.progress(90, text="Loading results...")
+        df_result = pd.read_csv("results_final.csv")
 
-            # --- Radar Chart ---
-            def plot_radar(row):
-                labels = ['MW', 'XLOGP', 'TPSA', 'HBD', 'RotatableBonds']
-                raw_values = [row.get(k, 0) for k in labels]
-                max_vals = {'MW': 600, 'XLOGP': 6, 'TPSA': 150, 'HBD': 5, 'RotatableBonds': 15}
-                norm = [v / max_vals[l] if max_vals[l] else 0 for v, l in zip(raw_values, labels)]
-                fig = go.Figure()
-                fig.add_trace(go.Scatterpolar(r=norm, theta=labels, fill='toself', name=row['SMILES'][:12]))
-                fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 1])), showlegend=True)
-                return fig
+        progress.progress(100, text="✅ Done!")
+        st.success("Prediction complete!")
+        st.dataframe(df_result)
 
-            st.markdown("### 🧭 Radar Chart")
-            idx = st.selectbox("Select a molecule:", df_result.index, format_func=lambda i: df_result.loc[i, 'SMILES'][:30])
-            st.plotly_chart(plot_radar(df_result.loc[idx]), use_container_width=True)
-        else:
-            st.error("❌ Final result file not found.")
+        # Store results in session state for future reference
+        st.session_state.results = df_result
+
+        # Download button
+        st.download_button(
+            label="📥 Download Results as CSV",
+            data=df_result.to_csv(index=False),
+            file_name="KinasePred_results.csv",
+            mime="text/csv"
+        )
 
     except Exception as e:
-        st.error(f"❌ Error: {e}")
+        st.error(f"❌ Error: {str(e)}")
+        progress.empty()
 
+# ----------------------------------------------------------------------
+# Visualization + Reset Button
+# ----------------------------------------------------------------------
+
+if st.session_state.results is not None:
+    st.markdown("### 🧭 Radar Chart for a Molecule")
+
+    idx = st.selectbox(
+        "Select a molecule to visualize:",
+        st.session_state.results.index,
+        format_func=lambda i: st.session_state.results.loc[i, 'SMILES'][:30]
+    )
+
+    fig = plot_radar(st.session_state.results.loc[idx])
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.download_button(
+        label="📥 Download Results as CSV",
+        data=st.session_state.results.to_csv(index=False),
+        file_name="KinasePred_results.csv",
+        mime="text/csv"
+    )
+
+    # ✅ Clear results and rerun
+    if st.button("🔄 Clear Results & Start New Batch"):
+        del st.session_state.results
+        st.rerun()
+
+
+
+
+
+# ----------------------------------------------------------------------
+# Footer
+# ----------------------------------------------------------------------
+st.markdown("---")
+st.caption("© 2025 DataBiotica / KinasePred. All rights reserved.")
