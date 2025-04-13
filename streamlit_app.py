@@ -42,29 +42,8 @@ smiles_input = st.text_area(
     key="smiles_input"
 )
 
-# Styled file drop zone
-st.markdown("""
-    <style>
-    .file-drop-zone {
-        border: 3px dashed #00c0f2;
-        border-radius: 10px;
-        padding: 16px;
-        background-color: #f0fbff;
-        animation: pulse 2s infinite;
-        text-align: center;
-        font-weight: 500;
-        margin-top: 10px;
-    }
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(0,192,242, 0.4); }
-        70% { box-shadow: 0 0 0 10px rgba(0,192,242, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(0,192,242, 0); }
-    }
-    </style>
-    <div class="file-drop-zone">📁 Drop or browse a CSV file here with SMILES</div>
-""", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("", type=["csv"], key="uploaded_file")
+uploaded_file = st.file_uploader("📁 Upload a CSV file with a `SMILES` column", type=["csv"], key="uploaded_file")
 
 if uploaded_file:
     st.success("✅ File uploaded successfully!")
