@@ -17,9 +17,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize session state for results
-if "results" not in st.session_state:
-    st.session_state.results = None
+
+# ✅ Initialize session state
+for key in ["results", "smiles_input", "uploaded_file"]:
+    if key not in st.session_state:
+        st.session_state[key] = None if key == "results" else ""
+
 
 
 # ✅ Branding (after config)
@@ -32,11 +35,36 @@ st.caption("Kinase inhibition prediction pipeline including BBB permeability and
 # ----------------------------------------------------------------------
 # Input Section
 # ----------------------------------------------------------------------
-st.markdown("### 🧪 Enter **SMILES** manually or upload a CSV file:")
+smiles_input = st.text_area(
+    "Paste SMILES (one per line):",
+    height=150,
+    key="smiles_input"
+)
 
-smiles_input = st.text_area("Paste SMILES (one per line):", height=150)
+# Styled file drop zone
+st.markdown(\"""
+    <style>
+    .file-drop-zone {
+        border: 3px dashed #00c0f2;
+        border-radius: 10px;
+        padding: 16px;
+        background-color: #f0fbff;
+        animation: pulse 2s infinite;
+        text-align: center;
+        font-weight: 500;
+        margin-top: 10px;
+    }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(0,192,242, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(0,192,242, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(0,192,242, 0); }
+    }
+    </style>
+    <div class="file-drop-zone">📁 Drop or browse a CSV file here with SMILES</div>
+\""", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Or upload CSV with a `SMILES` column", type=["csv"])
+uploaded_file = st.file_uploader("", type=["csv"], key="uploaded_file")
+
 
 # ----------------------------------------------------------------------
 # Run Predictions
@@ -91,20 +119,42 @@ if st.button("🚀 Run Predictions"):
         progress.empty()
 
 # ----------------------------------------------------------------------
-# Clear Results Section
+# Visualization
 # ----------------------------------------------------------------------
-if st.session_state.results is not None:
-    st.markdown("---")
-    st.download_button(
-        label="📥 Download Results as CSV",
-        data=st.session_state.results.to_csv(index=False),
-        file_name="KinasePred_results.csv",
-        mime="text/csv"
-    )
+def plot_radar(row):
+    labels = ['MW', 'XLOGP', 'TPSA', 'HBD', 'RotatableBonds']
+    values = [row.get(k, 0) for k in labels]
 
-    # Add a button to clear results and start a new batch
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=labels,
+        fill='toself',
+        name=row['SMILES'][:10] + "..."
+    ))
+
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, max(values) + 20])),
+        showlegend=True,
+        title="📊 Molecular Properties Radar Chart"
+    )
+    return fig
+
+if st.session_state.results is not None:
+    st.markdown("### 🧭 Radar Chart for a Molecule")
+    idx = st.selectbox(
+        "Select a molecule to visualize:",
+        st.session_state.results.index,
+        format_func=lambda i: st.session_state.results.loc[i, 'SMILES'][:30]
+    )
+    fig = plot_radar(st.session_state.results.loc[idx])
+    st.plotly_chart(fig, use_container_width=True)
+
+    # 🔄 Reset button
     if st.button("🔄 Clear Results & Start New Batch"):
         st.session_state.results = None
+        st.session_state.smiles_input = ""
+        st.session_state.uploaded_file = None
         st.experimental_rerun()
 
 # ----------------------------------------------------------------------
