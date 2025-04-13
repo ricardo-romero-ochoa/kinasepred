@@ -1,6 +1,10 @@
 streamlit
+rdkit
 pandas
 numpy
+matplotlib
+plotly
+py3Dmol
 scikit-learn
 tensorflow
-rdkit-pypi
+keras
