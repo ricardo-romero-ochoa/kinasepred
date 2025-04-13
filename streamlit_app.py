@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 from pipeline import main as run_pipeline  # This should accept 3 model paths
 from PIL import Image
+import plotly.graph_objects as go
 import time
 
 # ✅ Must be first
