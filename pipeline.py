@@ -14,6 +14,21 @@ from rdkit.Chem import FilterCatalog
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import StandardScaler
 
+
+import logging
+
+# Ensure logs directory (optional)
+os.makedirs("logs", exist_ok=True)
+
+logging.basicConfig(
+    filename="logs/pipeline.log",   # ✅ write to logs/pipeline.log
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
+
+
+
 # --- 1. VALIDATION ---
 class MoleculeValidator:
     def __init__(self):
