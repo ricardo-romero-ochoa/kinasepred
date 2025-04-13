@@ -133,71 +133,150 @@ def apply_brenk_pains(df, output_file):
     return df_out
 
 # --- 5. ML MODEL WRAPPERS ---
+
 def generate_herg_descriptors(smiles_list):
-    data = []
+    data_rows = []
     for smi in smiles_list:
         mol = Chem.MolFromSmiles(smi)
         if not mol:
-            data.append([0]*(6+2048+167)); continue
-        numeric = [
-            Descriptors.MolWt(mol), Descriptors.MolLogP(mol),
-            Descriptors.TPSA(mol), Lipinski.NumHDonors(mol),
-            Lipinski.NumAromaticRings(mol), Lipinski.NumRotatableBonds(mol)
-        ]
-        rdk_fp = np.zeros((2048,), dtype=int)
-        DataStructs.ConvertToNumpyArray(Chem.RDKFingerprint(mol), rdk_fp)
-        maccs_fp = np.zeros((167,), dtype=int)
-        DataStructs.ConvertToNumpyArray(MACCSkeys.GenMACCSKeys(mol), maccs_fp)
-        data.append(numeric + rdk_fp.tolist() + maccs_fp.tolist())
-    return np.array(data, dtype=float)
+            data_rows.append([0] * (6 + 2048 + 167))
+            continue
+
+        # Numeric descriptors
+        mw = Descriptors.MolWt(mol)
+        logp = Descriptors.MolLogP(mol)
+        tpsa = Descriptors.TPSA(mol)
+        hbd = Lipinski.NumHDonors(mol)
+        n_aromatic = Lipinski.NumAromaticRings(mol)
+        rot_bonds = Lipinski.NumRotatableBonds(mol)
+        numeric = [mw, logp, tpsa, hbd, n_aromatic, rot_bonds]
+
+        # RDK FP
+        rdk_fp = Chem.RDKFingerprint(mol, fpSize=2048)
+        rdk_bits = np.zeros((2048,), dtype=int)
+        DataStructs.ConvertToNumpyArray(rdk_fp, rdk_bits)
+
+        # MACCS FP
+        maccs_fp = MACCSkeys.GenMACCSKeys(mol)
+        maccs_bits = np.zeros((167,), dtype=int)
+        DataStructs.ConvertToNumpyArray(maccs_fp, maccs_bits)
+
+        row = numeric + rdk_bits.tolist() + maccs_bits.tolist()
+        data_rows.append(row)
+
+    return np.array(data_rows, dtype=float)
+
 
 def apply_keras_model(df, model_path, output_file):
+    print("📦 Loading bioactivity model...")
     model = load_model(model_path)
-    smi = df['SMILES'].tolist()
-    desc = [[Descriptors.MolWt(Chem.MolFromSmiles(s)),
-             Descriptors.MolLogP(Chem.MolFromSmiles(s)),
-             Lipinski.NumHDonors(Chem.MolFromSmiles(s)),
-             Lipinski.NumHAcceptors(Chem.MolFromSmiles(s))] for s in smi]
+
+    smiles = df["SMILES"].tolist()
+    descriptors = []
     fps = []
-    for s in smi:
-        mol = Chem.MolFromSmiles(s)
+
+    for smi in smiles:
+        mol = Chem.MolFromSmiles(smi)
+        if not mol:
+            descriptors.append([0, 0, 0, 0])
+            fps.append([0] * 2048)
+            continue
+        descriptors.append([
+            Descriptors.MolWt(mol),
+            Descriptors.MolLogP(mol),
+            Lipinski.NumHDonors(mol),
+            Lipinski.NumHAcceptors(mol)
+        ])
+        fp = Chem.RDKFingerprint(mol, fpSize=2048)
         arr = np.zeros((2048,), dtype=int)
-        DataStructs.ConvertToNumpyArray(Chem.RDKFingerprint(mol), arr)
+        DataStructs.ConvertToNumpyArray(fp, arr)
         fps.append(arr)
-    X = np.hstack([desc, fps])
-    Xs = StandardScaler().fit_transform(X).reshape(X.shape[0], X.shape[1], 1)
-    y_pred = model.predict(Xs)
-    df["Bioactivity"] = ["active" if x > 0.5 else "inactive" for x in y_pred.flatten()]
+
+    X = np.hstack([descriptors, fps])
+    if X.shape[0] == 1:
+        print("⚠️ Only 1 row detected — duplicating for model input stability.")
+        X = np.vstack([X, X])
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    X_scaled = X_scaled.reshape((X_scaled.shape[0], X_scaled.shape[1], 1))
+
+    print("✅ Shape before predict:", X_scaled.shape)
+    try:
+        y_pred = model.predict(X_scaled)
+    except Exception as e:
+        print("❌ Bioactivity prediction failed:", e)
+        raise
+
+    y_bin = (y_pred > 0.5).astype(int).flatten()
+    df["Bioactivity"] = ["active" if x == 1 else "inactive" for x in y_bin[:len(df)]]
     df.to_csv(output_file, index=False)
+    print(f"✅ Bioactivity predictions saved: {output_file}")
     return df
+
 
 def apply_herg_model(df, model_path, output_file):
-    X = StandardScaler().fit_transform(generate_herg_descriptors(df["SMILES"]))
-    model = load_model(model_path)
-    y_pred = model.predict(X)
-    df["HERG_Toxicity"] = ["toxic" if x > 0.5 else "non-toxic" for x in y_pred.flatten()]
+    print("📦 Loading hERG model...")
+    X = generate_herg_descriptors(df["SMILES"].tolist())
+    if X.shape[0] == 1:
+        print("⚠️ Only 1 row detected — duplicating for hERG model.")
+        X = np.vstack([X, X])
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    print("✅ Shape before hERG predict:", X_scaled.shape)
+    try:
+        model = load_model(model_path)
+        y_pred = model.predict(X_scaled)
+    except Exception as e:
+        print("❌ hERG prediction failed:", e)
+        raise
+
+    y_bin = (y_pred > 0.5).astype(int).flatten()
+    df["HERG_Toxicity"] = ["toxic" if x == 1 else "non-toxic" for x in y_bin[:len(df)]]
     df.to_csv(output_file, index=False)
+    print(f"✅ hERG predictions saved: {output_file}")
     return df
+
 
 def apply_bbb_model(df, model_path, output_file):
-    X = StandardScaler().fit_transform(generate_herg_descriptors(df["SMILES"]))
-    model = load_model(model_path)
-    y_pred = model.predict(X)
-    df["BBB_permeability"] = ["permeable" if x > 0.5 else "non-permeable" for x in y_pred.flatten()]
+    print("📦 Loading BBB model...")
+    X = generate_herg_descriptors(df["SMILES"].tolist())
+    if X.shape[0] == 1:
+        print("⚠️ Only 1 row detected — duplicating for BBB model.")
+        X = np.vstack([X, X])
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    print("✅ Shape before BBB predict:", X_scaled.shape)
+    try:
+        model = load_model(model_path)
+        y_pred = model.predict(X_scaled)
+    except Exception as e:
+        print("❌ BBB prediction failed:", e)
+        raise
+
+    y_bin = (y_pred > 0.5).astype(int).flatten()
+    df["BBB_permeability"] = ["permeable" if x == 1 else "non-permeable" for x in y_bin[:len(df)]]
     df.to_csv(output_file, index=False)
+    print(f"✅ BBB predictions saved: {output_file}")
     return df
 
-# --- MAIN PIPELINE ---
+
 def main(input_smiles_csv, model_path, herg_model_path, bbb_model_path, output_prefix):
-    df = validate_csv(input_smiles_csv, f"{output_prefix}_validation.csv")
-    df = apply_lipinski_rules(df, f"{output_prefix}_lipinski.csv")
-    df = apply_leadlikeness(df, f"{output_prefix}_lead.csv")
-    df = apply_brenk_pains(df, f"{output_prefix}_brenk.csv")
+    print(f"📂 Reading input: {input_smiles_csv}")
+    df = pd.read_csv(input_smiles_csv)
+    print("🔢 Input shape:", df.shape)
+
     df = apply_keras_model(df, model_path, f"{output_prefix}_bioactivity.csv")
     df = apply_herg_model(df, herg_model_path, f"{output_prefix}_herg.csv")
     df = apply_bbb_model(df, bbb_model_path, f"{output_prefix}_final.csv")
-    print("✅ Pipeline complete.")
+
+    print("🎉 Pipeline complete. Final results saved.")
     return df
+
 
 if __name__ == "__main__":
     main(
