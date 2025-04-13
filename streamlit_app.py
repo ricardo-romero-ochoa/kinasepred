@@ -137,8 +137,8 @@ if st.session_state.results is not None:
 
     # 🔄 Reset button
     if st.button("🔄 Clear Results & Start New Batch"):
-        st.session_state.results = None
-        st.experimental_rerun()
+        del st.session_state.results
+        st.rerun()
 
 
 
