@@ -134,6 +134,22 @@ def apply_brenk_pains(df, output_file):
 
 # --- 5. ML MODEL WRAPPERS ---
 
+import os
+import numpy as np
+import pandas as pd
+import logging
+from rdkit import Chem, DataStructs
+from rdkit.Chem import Descriptors, Lipinski, MACCSkeys
+from tensorflow.keras.models import load_model
+from sklearn.preprocessing import StandardScaler
+
+# ✅ Setup logging
+logging.basicConfig(
+    filename="pipeline.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
 def generate_herg_descriptors(smiles_list):
     data_rows = []
     for smi in smiles_list:
@@ -142,7 +158,6 @@ def generate_herg_descriptors(smiles_list):
             data_rows.append([0] * (6 + 2048 + 167))
             continue
 
-        # Numeric descriptors
         mw = Descriptors.MolWt(mol)
         logp = Descriptors.MolLogP(mol)
         tpsa = Descriptors.TPSA(mol)
@@ -151,12 +166,10 @@ def generate_herg_descriptors(smiles_list):
         rot_bonds = Lipinski.NumRotatableBonds(mol)
         numeric = [mw, logp, tpsa, hbd, n_aromatic, rot_bonds]
 
-        # RDK FP
         rdk_fp = Chem.RDKFingerprint(mol, fpSize=2048)
         rdk_bits = np.zeros((2048,), dtype=int)
         DataStructs.ConvertToNumpyArray(rdk_fp, rdk_bits)
 
-        # MACCS FP
         maccs_fp = MACCSkeys.GenMACCSKeys(mol)
         maccs_bits = np.zeros((167,), dtype=int)
         DataStructs.ConvertToNumpyArray(maccs_fp, maccs_bits)
@@ -166,9 +179,8 @@ def generate_herg_descriptors(smiles_list):
 
     return np.array(data_rows, dtype=float)
 
-
 def apply_keras_model(df, model_path, output_file):
-    print("📦 Loading bioactivity model...")
+    logging.info("Loading bioactivity model...")
     model = load_model(model_path)
 
     smiles = df["SMILES"].tolist()
@@ -194,89 +206,91 @@ def apply_keras_model(df, model_path, output_file):
 
     X = np.hstack([descriptors, fps])
     if X.shape[0] == 1:
-        print("⚠️ Only 1 row detected — duplicating for model input stability.")
+        logging.warning("Only one molecule detected — duplicating row.")
         X = np.vstack([X, X])
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     X_scaled = X_scaled.reshape((X_scaled.shape[0], X_scaled.shape[1], 1))
 
-    print("✅ Shape before predict:", X_scaled.shape)
     try:
         y_pred = model.predict(X_scaled)
     except Exception as e:
-        print("❌ Bioactivity prediction failed:", e)
+        logging.error(f"Bioactivity prediction failed: {e}")
         raise
 
     y_bin = (y_pred > 0.5).astype(int).flatten()
     df["Bioactivity"] = ["active" if x == 1 else "inactive" for x in y_bin[:len(df)]]
     df.to_csv(output_file, index=False)
-    print(f"✅ Bioactivity predictions saved: {output_file}")
+    logging.info(f"Saved bioactivity predictions: {output_file}")
     return df
 
-
 def apply_herg_model(df, model_path, output_file):
-    print("📦 Loading hERG model...")
+    logging.info("Loading hERG model...")
     X = generate_herg_descriptors(df["SMILES"].tolist())
     if X.shape[0] == 1:
-        print("⚠️ Only 1 row detected — duplicating for hERG model.")
+        logging.warning("Only one molecule detected — duplicating row.")
         X = np.vstack([X, X])
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    print("✅ Shape before hERG predict:", X_scaled.shape)
     try:
         model = load_model(model_path)
         y_pred = model.predict(X_scaled)
     except Exception as e:
-        print("❌ hERG prediction failed:", e)
+        logging.error(f"hERG prediction failed: {e}")
         raise
 
     y_bin = (y_pred > 0.5).astype(int).flatten()
     df["HERG_Toxicity"] = ["toxic" if x == 1 else "non-toxic" for x in y_bin[:len(df)]]
     df.to_csv(output_file, index=False)
-    print(f"✅ hERG predictions saved: {output_file}")
+    logging.info(f"Saved hERG predictions: {output_file}")
     return df
 
-
 def apply_bbb_model(df, model_path, output_file):
-    print("📦 Loading BBB model...")
+    logging.info("Loading BBB model...")
     X = generate_herg_descriptors(df["SMILES"].tolist())
     if X.shape[0] == 1:
-        print("⚠️ Only 1 row detected — duplicating for BBB model.")
+        logging.warning("Only one molecule detected — duplicating row.")
         X = np.vstack([X, X])
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    print("✅ Shape before BBB predict:", X_scaled.shape)
     try:
         model = load_model(model_path)
         y_pred = model.predict(X_scaled)
     except Exception as e:
-        print("❌ BBB prediction failed:", e)
+        logging.error(f"BBB prediction failed: {e}")
         raise
 
     y_bin = (y_pred > 0.5).astype(int).flatten()
     df["BBB_permeability"] = ["permeable" if x == 1 else "non-permeable" for x in y_bin[:len(df)]]
     df.to_csv(output_file, index=False)
-    print(f"✅ BBB predictions saved: {output_file}")
+    logging.info(f"Saved BBB predictions: {output_file}")
     return df
 
+def clean_intermediate_files(prefix):
+    keep = f"{prefix}_final.csv"
+    for fname in os.listdir():
+        if fname.startswith(prefix) and fname != keep and fname.endswith(".csv"):
+            os.remove(fname)
+            logging.info(f"🧹 Deleted intermediate file: {fname}")
 
 def main(input_smiles_csv, model_path, herg_model_path, bbb_model_path, output_prefix):
-    print(f"📂 Reading input: {input_smiles_csv}")
+    logging.info(f"🚀 Running pipeline on: {input_smiles_csv}")
     df = pd.read_csv(input_smiles_csv)
-    print("🔢 Input shape:", df.shape)
+    logging.info(f"Input shape: {df.shape}")
 
     df = apply_keras_model(df, model_path, f"{output_prefix}_bioactivity.csv")
     df = apply_herg_model(df, herg_model_path, f"{output_prefix}_herg.csv")
     df = apply_bbb_model(df, bbb_model_path, f"{output_prefix}_final.csv")
 
-    print("🎉 Pipeline complete. Final results saved.")
-    return df
+    clean_intermediate_files(output_prefix)
 
+    logging.info("✅ Pipeline finished.")
+    return df
 
 if __name__ == "__main__":
     main(
