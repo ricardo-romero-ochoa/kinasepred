@@ -1,12 +1,11 @@
 # ------------------------------------------------------------------------------
 # KinasePred: Kinase Inhibitor Bioactivity & Toxicity Prediction Platform
 # © 2025 DataBiotica. All rights reserved.
-# Unauthorized use, copying, or distribution is prohibited without permission.
 # ------------------------------------------------------------------------------
 
 import streamlit as st
 import pandas as pd
-from pipeline import main as run_pipeline  # This should accept 3 model paths
+from pipeline import main as run_pipeline
 from PIL import Image
 import plotly.graph_objects as go
 import time
@@ -18,17 +17,13 @@ st.set_page_config(
     layout="wide"
 )
 
-
+# ✅ Session state init
 if "results" not in st.session_state:
     st.session_state.results = None
 if "smiles_input" not in st.session_state:
     st.session_state.smiles_input = ""
-# 🚫 Do not set st.session_state.uploaded_file
 
-
-
-
-# ✅ Branding (after config)
+# ✅ Branding
 logo = Image.open("assets/logo.png")
 st.image(logo, width=150)
 
@@ -44,12 +39,10 @@ smiles_input = st.text_area(
     key="smiles_input"
 )
 
-
 uploaded_file = st.file_uploader("📁 Upload a CSV file with a `SMILES` column", type=["csv"], key="uploaded_file")
 
 if uploaded_file:
     st.success("✅ File uploaded successfully!")
-
 
 # ----------------------------------------------------------------------
 # Run Predictions
@@ -88,10 +81,8 @@ if st.button("🚀 Run Predictions"):
         st.success("Prediction complete!")
         st.dataframe(df_result)
 
-        # Store results in session state for future reference
         st.session_state.results = df_result
 
-        # Download button
         st.download_button(
             label="📥 Download Results as CSV",
             data=df_result.to_csv(index=False),
@@ -102,6 +93,44 @@ if st.button("🚀 Run Predictions"):
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
         progress.empty()
+
+# ----------------------------------------------------------------------
+# Radar Plot Function
+# ----------------------------------------------------------------------
+def plot_radar(row):
+    labels = ['MW', 'XLOGP', 'TPSA', 'HBD', 'RotatableBonds']
+    values = []
+
+    # Normalization factors (adjust as needed)
+    max_vals = {
+        'MW': 600,
+        'XLOGP': 6,
+        'TPSA': 150,
+        'HBD': 5,
+        'RotatableBonds': 15
+    }
+
+    for key in labels:
+        val = row.get(key, 0)
+        max_val = max_vals.get(key, 1)
+        norm_val = min(val / max_val, 1.0) if pd.notnull(val) else 0
+        values.append(norm_val)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=labels,
+        fill='toself',
+        name=row['SMILES'][:12] + "..."
+    ))
+
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+        showlegend=False,
+        title="📊 Normalized Molecular Property Radar"
+    )
+
+    return fig
 
 # ----------------------------------------------------------------------
 # Visualization + Reset Button
@@ -126,17 +155,13 @@ if st.session_state.results is not None:
         mime="text/csv"
     )
 
-    # ✅ Clear results and rerun
     if st.button("🔄 Clear Results & Start New Batch"):
         del st.session_state.results
         st.rerun()
-
-
-
-
 
 # ----------------------------------------------------------------------
 # Footer
 # ----------------------------------------------------------------------
 st.markdown("---")
 st.caption("© 2025 DataBiotica / KinasePred. All rights reserved.")
+
