@@ -625,7 +625,7 @@ def main(
 
     # 5) Bioactivity Model inference
     bioactivity_csv = f"{output_prefix}_bioactivity.csv"
-    df_step5 = apply_keras_model(df_step4, bioactivity_csv)
+    df_step5 = apply_keras_model(df_step4, model_path, bioactivity_csv)
 
     # 6) Herg Model inference
     herg_csv = f"{output_prefix}_herg.csv"
