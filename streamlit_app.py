@@ -100,19 +100,25 @@ if st.button("🚀 Run Predictions"):
         st.error(f"❌ Error: {e}")
 
 # -----------------------------------------------
-# 📝 Show Logs from pipeline.log
+# 📝 Show Logs from logs/pipeline.log
 # -----------------------------------------------
 st.markdown("---")
 st.markdown("### 📝 Pipeline Log Output")
 
-log_file = "pipeline.log"
+log_file = "logs/pipeline.log"  # <- updated path
 if os.path.exists(log_file):
     with open(log_file, "r") as f:
         logs = f.read()
     st.text_area("Logs:", logs, height=300, key="log_display")
+
+    if st.button("🧹 Clear Logs"):
+        open(log_file, "w").close()
+        st.success("Logs cleared.")
+
+    with open(log_file, "rb") as f:
+        st.download_button("📥 Download Logs", data=f, file_name="pipeline.log")
 else:
     st.info("Log file not found. Run the pipeline to generate logs.")
-
 
 # --- FOOTER ---
 st.markdown("---")
