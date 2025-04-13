@@ -17,6 +17,11 @@ st.set_page_config(
     layout="wide"
 )
 
+# Initialize session state for results
+if "results" not in st.session_state:
+    st.session_state.results = None
+
+
 # ✅ Branding (after config)
 logo = Image.open("assets/logo.png")
 st.image(logo, width=150)
