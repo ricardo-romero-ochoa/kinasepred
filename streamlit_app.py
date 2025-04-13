@@ -12,14 +12,13 @@ st.set_page_config(
     page_icon="🧬",
     layout="wide"
 )
-
+st.title("🧬 KinasePred: Bioactivity, BBB & hERG Prediction")
 
 import pandas as pd
 from pipeline import main as run_pipeline  # This should accept 3 model paths
 from PIL import Image
 
-#st.set_page_config(page_title="MolPred", layout="wide")
-st.title("🧬 KinasePred: Bioactivity, BBB & hERG Prediction")
+
 
 st.markdown("Enter **SMILES** manually or upload a CSV file with a 'SMILES' column.")
 
