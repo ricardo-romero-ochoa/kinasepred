@@ -5,6 +5,10 @@
 # ------------------------------------------------------------------------------
 
 import streamlit as st
+import pandas as pd
+from pipeline import main as run_pipeline  # This should accept 3 model paths
+from PIL import Image
+import time
 
 # ✅ Must be first
 st.set_page_config(
@@ -12,11 +16,6 @@ st.set_page_config(
     page_icon="🧬",
     layout="wide"
 )
-
-import pandas as pd
-from pipeline import main as run_pipeline  # This should accept 3 model paths
-from PIL import Image
-import time
 
 # ✅ Branding (after config)
 logo = Image.open("assets/logo.png")
@@ -71,7 +70,10 @@ if st.button("🚀 Run Predictions"):
         st.success("Prediction complete!")
         st.dataframe(df_result)
 
-        # Download
+        # Store results in session state for future reference
+        st.session_state.results = df_result
+
+        # Download button
         st.download_button(
             label="📥 Download Results as CSV",
             data=df_result.to_csv(index=False),
@@ -82,6 +84,23 @@ if st.button("🚀 Run Predictions"):
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
         progress.empty()
+
+# ----------------------------------------------------------------------
+# Clear Results Section
+# ----------------------------------------------------------------------
+if st.session_state.results is not None:
+    st.markdown("---")
+    st.download_button(
+        label="📥 Download Results as CSV",
+        data=st.session_state.results.to_csv(index=False),
+        file_name="KinasePred_results.csv",
+        mime="text/csv"
+    )
+
+    # Add a button to clear results and start a new batch
+    if st.button("🔄 Clear Results & Start New Batch"):
+        st.session_state.results = None
+        st.experimental_rerun()
 
 # ----------------------------------------------------------------------
 # Footer
