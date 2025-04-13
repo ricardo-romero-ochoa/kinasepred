@@ -32,7 +32,8 @@ logo = Image.open("assets/logo.png")
 st.image(logo, width=150)
 
 st.title("🧬 KinasePred: Bioactivity, BBB & hERG Prediction")
-st.caption("Kinase inhibition prediction pipeline including BBB permeability and hERG toxicity evaluation.")
+st.caption("Deep learning based, small molecule Kinase inhibitors prediction pipeline, including BBB permeability and hERG toxicity evaluation.")
+st.caption("Developed by Dr. Ricardo Romero, rromero@cua.uam.mx")
 
 # ----------------------------------------------------------------------
 # Input Section
