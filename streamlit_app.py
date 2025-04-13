@@ -4,10 +4,16 @@
 # Unauthorized use, copying, or distribution is prohibited without permission.
 # ------------------------------------------------------------------------------
 
-
-
-
 import streamlit as st
+
+# ✅ Must be the first Streamlit command
+st.set_page_config(
+    page_title="KinasePred",
+    page_icon="🧬",
+    layout="wide"
+)
+
+
 import pandas as pd
 from pipeline import main as run_pipeline  # This should accept 3 model paths
 from PIL import Image
