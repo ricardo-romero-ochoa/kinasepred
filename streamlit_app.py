@@ -43,13 +43,6 @@ if st.button("🚀 Run Predictions"):
             st.warning("⚠️ Please provide SMILES.")
             st.stop()
 
-        # Handle single-SMILES edge case: duplicate if needed
-        if df.shape[0] == 1:
-            st.warning("⚠️ Only one SMILES provided — duplicating for stability.")
-            df = pd.concat([df, df])
-
-        st.write("Input shape:", df.shape)
-        st.write(df.head())
 
         # Step 2: Save temp input
         df.to_csv("input_temp.csv", index=False)
