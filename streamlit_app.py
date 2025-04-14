@@ -87,8 +87,10 @@ if st.button("🚀 Run Predictions"):
             label="📥 Download Results as CSV",
             data=df_result.to_csv(index=False),
             file_name="KinasePred_results.csv",
-            mime="text/csv"
+            mime="text/csv",
+            key="download_button_main"
         )
+
 
     except Exception as e:
         st.error(f"❌ Error: {str(e)}")
@@ -152,8 +154,10 @@ if st.session_state.results is not None:
         label="📥 Download Results as CSV",
         data=st.session_state.results.to_csv(index=False),
         file_name="KinasePred_results.csv",
-        mime="text/csv"
+        mime="text/csv",
+        key="download_button_radar"
     )
+
 
     if st.button("🔄 Clear Results & Start New Batch"):
         del st.session_state.results
